@@ -4,9 +4,9 @@ A 2D top-down exploration game written in Haskell.
 
 ## Controls:
 
-** W **         - Move North  
-** A **         - Move West  
-** S **         - Move South  
-** D **         - Move East  
-** Space **     - Use Exit  
-** Esc **       - Quit Game  
+**W**         - Move North  
+**A**         - Move West  
+**S**         - Move South  
+**D**         - Move East  
+**Space**     - Use Exit  
+**Esc**       - Quit Game  
