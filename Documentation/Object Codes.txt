@@ -1,0 +1,56 @@
+Halex Object Codes
+
+Terrain
+1 - C
+2 - E 
+3 - EW
+4 - N
+5 - NE
+6 - NEW
+7 - NS
+8 - NSE
+9 - NSEW
+A - NSW
+B - NW
+C - S
+D - SE
+E - SEW
+F - SW
+G - W
+
+Static Structures
+1 - Barrels
+2 - Bookcase
+3 - Crates
+4 - Table
+
+Dynamic Structures
+1 - Bonfire
+2 - Pipe
+3 - Tree
+4 - Well
+
+Static Decorations
+1 - Cracks Large
+2 - Cracks Small
+3 - Stones Large
+4 - Stones Small
+
+Dynamnic Decorations
+1 - Candles
+2 - JackO
+3 - Oil
+4 - Seance
+
+Setpieces
+1 - The Warrior
+2 - The Water
+3 - The Welcome
+4 - The Window
+
+Exits
+
+1 - Blue
+2 - Cyan
+3 - Green
+4 - Purple
