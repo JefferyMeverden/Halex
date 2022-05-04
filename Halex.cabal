@@ -14,19 +14,19 @@ name:               Halex
 -- PVP summary:      +-+------- breaking API changes
 --                   | | +----- non-breaking API additions
 --                   | | | +--- code changes with no API change
-version:            0.1.0.0
+version:            0.5.0.0
 
 -- A short (one-line) description of the package.
-synopsis:           A 2D Top-Down Soulslike Metroidvania written in Haskell.
+synopsis:           A 2D top-down exploration game written in Haskell.
 
 -- A longer description of the package.
--- description:
+description:        Take control of Halex to explore an underground cathedral, discover three haunting ruins, and escape to the surface.
 
 -- URL for the project homepage or repository.
-homepage:
+homepage: 	    https://github.com/JefferyMeverden/Halex
 
 -- A URL where users can report bugs.
--- bug-reports:
+bug-reports:        https://github.com/JefferyMeverden/Halex/issues
 
 -- The license under which the package is released.
 license:            GPL-3.0-or-later
@@ -38,10 +38,10 @@ license-file:       LICENSE
 author:             Jeffery Jerome Meverden III
 
 -- An email address to which users can send suggestions, bug reports, and patches.
-maintainer:         jmeverden3@gmail.com
+maintainer:         University: jjmiii@uwm.edu, Business: jmeverden3@gmail.com
 
 -- A copyright notice.
--- copyright:
+copyright:	    © 2022 Jeffery Jerome Meverden III
 category:           Game
 
 -- Extra files to be distributed with the package, such as examples or a README.
