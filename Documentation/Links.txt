@@ -1,7 +1,0 @@
-https://andrew.gibiansky.com/blog/haskell/haskell-gloss/
-
-https://stackoverflow.com/questions/47159722/haskell-gloss-io-textures
-
-https://stackoverflow.com/questions/54672381/how-can-i-import-an-image-in-haskell
-
-https://blog.jayway.com/2020/11/01/making-a-small-game-with-gloss/
