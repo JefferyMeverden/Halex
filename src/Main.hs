@@ -1,5 +1,16 @@
+{-
+ * 
+ * Author: Jeffery Jerome Meverden III
+ * Date Created: 4/10/2022
+ * Description: This program is an implementation of Halex,
+ * a top-down 2D exploration video game.
+ * 
+-}
+
 module Main(main) where
 
+
+---- Import Statements ----
 
 import Data.Bool
 import Data.Set as S
@@ -11,6 +22,7 @@ import Graphics.Gloss.Interface.Pure.Game
 import Graphics.Gloss.Juicy
 import System.Directory
 import System.IO.Unsafe
+import System.Exit (exitSuccess)
 
 
 ---- Data Types ----
@@ -19,29 +31,33 @@ import System.IO.Unsafe
 -- A Game of Halex.
 data HalexGame = HalexGame
     {
-        player          :: Player,
-        exits           :: [Exit],
-        staticEnv       :: [StaticEnvironment],
-        dynamicEnv      :: [DynamicEnvironment],
-        input           :: S.Set Key,
-        level           :: Int,    
-        exitAll         :: [[Exit]],
-        staticAll       :: [[StaticEnvironment]],
-        dynamicAll      :: [[DynamicEnvironment]]
+        player          :: Player,                  -- The player character of the game.
+        exits           :: [Exit],                  -- The list of exit objects in the current level.
+        staticEnv       :: [StaticEnvironment],     -- The list of static objects in the current level.
+        dynamicEnv      :: [DynamicEnvironment],    -- The list of dynamic objects in the current level.
+        collisions      :: [Collision],             -- The list of colision objects in the current level.
+        input           :: S.Set Key,               -- The set of input buttons being pressed by the user.
+        level           :: Int,                     -- The number of the current level.
+        exitAll         :: [[Exit]],                -- The list of all exit objects in the entire game.
+        staticAll       :: [[StaticEnvironment]],   -- The list of all static objects in the entire game.
+        dynamicAll      :: [[DynamicEnvironment]],  -- The list of all dynamic objects in the entire game.
+        collisionAll    :: [[Collision]],           -- The list of all collision objects in the entire game.
+        messages        :: [Picture],               -- The list of messages that can appear onscreen.
+        condition       :: Int                      -- 0 - Game Start      1 - Game Play      2 - Game Over
     }
 
 -- The Player Character.
 data Player = Player 
     {
-        playerIdle      :: [Picture],       -- The list of sprite frames for the Player's idle animation.
-        playerWalk      :: [[Picture]],     -- The list of sprite frames for the Player's walk animation.
-        playerFrame     :: Int,             -- The current frame of the animation.
-        playerDelta     :: Int,             -- The counter until the next frame can advance.
-        playerX         :: Int,             -- The Player's x-coordinate.
-        playerY         :: Int,             -- The Player's y-coordinate.
-        playerSpeed     :: Int,             -- The Player's movement speed.
-        playerDirection :: Direction,       -- The Player's current direction.
-        playerMoving    :: Bool             -- Determines whether the Player is walking.
+        playerIdle      :: [Picture],               -- The list of sprite frames for the player's idle animation.
+        playerWalk      :: [[Picture]],             -- The list of sprite frames for the player's walk animation.
+        playerFrame     :: Int,                     -- The current frame of the animation.
+        playerDelta     :: Int,                     -- The counter until the next frame can advance.
+        playerX         :: Int,                     -- The player's x-coordinate.
+        playerY         :: Int,                     -- The player's y-coordinate.
+        playerSpeed     :: Int,                     -- The player's movement speed.
+        playerDirection :: Direction,               -- The player's current direction.
+        playerMoving    :: Bool                     -- Determines whether the player is walking.
     }
 
 -- The Eight Cardinal Directions.
@@ -50,40 +66,47 @@ data Direction = North | South | East | West | Northeast | Northwest | Southeast
 -- Exits transport the Player between Levels.
 data Exit = Exit
     {
-        exitSprites     :: Picture,         -- The sprite for the exit.
-        exitX           :: Int,             -- The exit's x-coordinate.
-        exitY           :: Int,             -- The exit's y-coordinate
-        exitCode        :: Int              -- The destination of the exit.
+        exitSprites     :: Picture,                 -- The sprite for the exit.
+        exitX           :: Int,                     -- The exit's x-coordinate.
+        exitY           :: Int,                     -- The exit's y-coordinate
+        exitCode        :: Int                      -- The destination of the exit.
     }
 
 -- Static Objects that Compose a Level.
 data StaticEnvironment = StaticEnvironment
     {
-        senvSprite      :: Picture,         -- The sprite for the object.
-        senvX           :: Int,             -- The object's x-coordinate.
-        senvY           :: Int,             -- The object's y-coordinate.
-        senvType        :: EnvType          -- The class of environment to which this object belongs.
+        senvSprite      :: Picture,                 -- The sprite for the object.
+        senvX           :: Int,                     -- The object's x-coordinate.
+        senvY           :: Int,                     -- The object's y-coordinate.
+        senvType        :: EnvType                  -- The class of environment to which this object belongs.
     }
 
 -- Animated Objects that Compose a Level.
 data DynamicEnvironment = DynamicEnvironment
     {
-        denvAnim        :: [Picture],       -- The list of sprite frames for the object's animation.
-        denvFrame       :: Int,             -- The current frame of the animation.
-        denvDelta       :: Int,             -- The counter until the next frame can advance.
-        denvX           :: Int,             -- The object's x-coordinate.
-        denvY           :: Int,             -- The object's y-coordinate.
-        denvType        :: EnvType          -- The class of environment to which this object belongs.
+        denvAnim        :: [Picture],               -- The list of sprite frames for the object's animation.
+        denvFrame       :: Int,                     -- The current frame of the animation.
+        denvDelta       :: Int,                     -- The counter until the next frame can advance.
+        denvX           :: Int,                     -- The object's x-coordinate.
+        denvY           :: Int,                     -- The object's y-coordinate.
+        denvType        :: EnvType                  -- The class of environment to which this object belongs.
     }
 
 -- The Types of Environment.
-data EnvType = Terrain                      -- Ground that can be walked on but never walked off.
-             | Structure                    -- Objects on the Ground that cannot be walked through.
-             | Decoration                   -- Objects on the Ground that can be walked on.
-             | Setpiece                     -- Special decorations that are very large.
+data EnvType = Terrain                              -- Ground that can be walked on but never walked off.
+             | Structure                            -- Objects on the Ground that cannot be walked through.
+             | Decoration                           -- Objects on the Ground that can be walked on.
+             | Setpiece                             -- Special decorations that are very large.
+
+-- Collision Tile.
+data Collision = Collision
+    {
+        collisionX :: Int,                          -- The object's x-coordinate.
+        collisionY :: Int                           -- The object's y-coordinate.
+    }
 
 
----- Utility ----
+---- Utility Functions ----
 
 
 -- Returns a specified sprite file loaded into a Picture (if it can be loaded).
@@ -127,10 +150,16 @@ dirToInt direction =
         Southwest   -> 8
 
 
----- Functions ----
+---- Load/Draw/Update Functions ----
 
-loadGame :: [Picture] -> [Picture] -> [[Picture]] -> [Picture] -> [[Picture]] -> [Picture] -> [Picture] -> [Picture] -> [[Picture]] -> IO HalexGame
-loadGame terrainSprites staticStructureSprites dynamicStructureAnims staticDecorationSprites dynamicDecorationAnims setpieceSprites exitSprites playerIdleSprites playerWalkAnims = do
+{-
+    Load Functions: Spawn objects into the level by reading from a text file.
+    Draw Functions: Render those objects with sprites that are translated to the corresponding object's coordinates.
+    Update Functions: Advances animation frames and moves the objects in the level in response to the player's movement input 
+                     (the game world moves around a stationary player character with the exception of collisions that also stay static).
+-}
+loadGame :: [Picture] -> [Picture] -> [[Picture]] -> [Picture] -> [[Picture]] -> [Picture] -> [Picture] -> [Picture] -> [[Picture]] -> [Picture] -> IO HalexGame
+loadGame terrainSprites staticStructureSprites dynamicStructureAnims staticDecorationSprites dynamicDecorationAnims setpieceSprites exitSprites playerIdleSprites playerWalkAnims messageSprites = do
 
     exits1              <- loadAllExits "Edge" exitSprites
     exits2              <- loadAllExits "Underworld" exitSprites
@@ -159,16 +188,25 @@ loadGame terrainSprites staticStructureSprites dynamicStructureAnims staticDecor
 
     let dynamicAll = [dynamicEnvironment1, dynamicEnvironment2, dynamicEnvironment3, dynamicEnvironment4, dynamicEnvironment5, dynamicEnvironment6]
     
-    let player = Player playerIdleSprites playerWalkAnims 1 5 0 0 2 South False
+    collision1          <- loadAllCollision "Edge"
+    collision2          <- loadAllCollision "Underworld"
+    collision3          <- loadAllCollision "Cathedral"
+    collision4          <- loadAllCollision "Necropolis"
+    collision5          <- loadAllCollision "Wasteland"
+    collision6          <- loadAllCollision "Ascension"
+
+    let collisionAll = [collision1, collision2, collision3, collision4, collision5, collision6]
 
     let spawnX = (-1120)
     let spawnY = 1856
+
+    let player = Player playerIdleSprites playerWalkAnims 1 5 (-spawnX) (-spawnY) 2 South False
 
     let exitStart = updateExits exits1 spawnX spawnY []
     let staticStart = updateStaticEnvironment staticEnvironment1 spawnX spawnY []
     let dynamicStart = updateDynamicEnvironment dynamicEnvironment1 spawnX spawnY []
 
-    let game = HalexGame player exitStart staticStart dynamicStart S.empty 1 exitAll staticAll dynamicAll
+    let game = HalexGame player exitStart staticStart dynamicStart collision1 S.empty 1 exitAll staticAll dynamicAll collisionAll messageSprites 0
     return game
 
 loadAllExits :: String -> [Picture] -> IO [Exit]
@@ -204,6 +242,12 @@ loadAllDynamic levelName dynamicStructureAnims dynamicDecorationAnims = do
 
     let dynamicEnvironment = dynamicStructureObjects ++ dynamicDecorationObjects
     return dynamicEnvironment
+
+loadAllCollision :: String -> IO [Collision]
+loadAllCollision levelName = do
+    collisionFile <- readFile("Assets/Levels/" ++ levelName ++ "/Collisions.txt")
+    let collisionObjects = loadCollision collisionFile 0 0 []
+    return collisionObjects
 
 loadExits :: String -> Int -> Int -> [Picture] -> [Exit] -> [Exit]
 loadExits [] x y sprites output = output
@@ -251,16 +295,16 @@ loadStaticEnvironment (z:zs) x y sprites envtype output =
 loadDynamicEnvironment :: String -> Int -> Int -> [[Picture]] -> EnvType -> [DynamicEnvironment] -> [DynamicEnvironment]
 loadDynamicEnvironment [] x y anims envtype output = output
 loadDynamicEnvironment (z:zs) x y anims envtype output =
-        case z of 
-            '\n'    ->
-                loadDynamicEnvironment zs 0 (y - 64) anims envtype output
-            '0'     -> 
-                loadDynamicEnvironment zs (x + 64) y anims envtype output
-            'X'     ->
-                loadDynamicEnvironment zs (x + 64) y anims envtype output
-            _       ->
-                let tile = DynamicEnvironment (getItem (hexDigitToInt(z)) anims) 1 10 x y envtype
-                in loadDynamicEnvironment zs (x + 64) y anims envtype (output ++ [tile])
+    case z of 
+        '\n'    ->
+            loadDynamicEnvironment zs 0 (y - 64) anims envtype output
+        '0'     -> 
+            loadDynamicEnvironment zs (x + 64) y anims envtype output
+        'X'     ->
+            loadDynamicEnvironment zs (x + 64) y anims envtype output
+        _       ->
+            let tile = DynamicEnvironment (getItem (hexDigitToInt(z)) anims) 1 10 x y envtype
+            in loadDynamicEnvironment zs (x + 64) y anims envtype (output ++ [tile])
 
 updateStaticEnvironment :: [StaticEnvironment] -> Int -> Int -> [StaticEnvironment] -> [StaticEnvironment]
 updateStaticEnvironment [] deltaX deltaY output = output
@@ -297,18 +341,30 @@ drawDynamicEnvironment (z:zs) output =
                 translatedSprite = translate (fromIntegral(x)) (fromIntegral(y)) (currentSprite)
             in  drawDynamicEnvironment zs (output ++ [translatedSprite])
 
-updatePlayer :: Player -> Direction -> Bool -> Player
-updatePlayer player direction moving = 
+loadCollision :: String -> Int -> Int -> [Collision] -> [Collision]
+loadCollision [] x y output = output
+loadCollision (z:zs) x y output = 
+    case z of
+        '\n'    ->
+            loadCollision zs 0 (y - 64) output
+        'L'     ->
+            loadCollision zs (x + 64) y output
+        _       ->
+            let tile = Collision x y
+            in loadCollision zs (x + 64) y (output ++ [tile]) 
+
+updatePlayer :: Player -> Direction -> Bool -> Int -> Int -> Player
+updatePlayer player direction moving deltaX deltaY = 
     case player of
     Player idleAnims walkAnims frame delta x y speed dr mov ->
         case moving of 
             True    ->
                 if (delta > 0) then
-                    Player idleAnims walkAnims frame (delta - 1) x y speed direction True 
+                    Player idleAnims walkAnims frame (delta - 1) (x + deltaX) (y + deltaY) speed direction True 
                 else 
-                    if (frame > 7) then Player idleAnims walkAnims 1 5 x y speed direction True 
-                    else Player idleAnims walkAnims (frame + 1) 5 x y speed direction True
-            False   ->      Player idleAnims walkAnims frame delta x y speed dr False 
+                    if (frame > 7) then Player idleAnims walkAnims 1 5 (x + deltaX) (y + deltaY) speed direction True 
+                    else Player idleAnims walkAnims (frame + 1) 5 (x + deltaX) (y + deltaY) speed direction True
+            False   ->      Player idleAnims walkAnims frame delta (x + deltaX) (y + deltaY) speed dr False 
 
 drawPlayer :: Player -> [Picture]
 drawPlayer player = case player of
@@ -316,20 +372,55 @@ drawPlayer player = case player of
         case moving of
             True    ->
                 let currentSprite = getItem frame (getItem (dirToInt(direction)) (walkAnims))
-                    translatedSprite = translate (fromIntegral(x)) (fromIntegral(y)) (currentSprite)
-                in [translatedSprite]
+                in [currentSprite]
             False   -> 
                 let currentSprite = getItem (dirToInt(direction)) (idleSprites)
-                    translatedSprite = translate (fromIntegral(x)) (fromIntegral(y)) (currentSprite)
-                in [translatedSprite]
+                in [currentSprite]
 
--- Transports the Player from one level to the next using the three helper methods below.
+drawMessages :: [Picture] -> Int -> [Picture]
+drawMessages messages condition =
+    case condition of
+        0   ->
+            [getItem 1 messages]
+        1   ->
+            []
+        2   ->
+            [getItem 2 messages]
+
+updateCondition :: HalexGame -> Int -> HalexGame
+updateCondition game newCondition =
+    game 
+        {
+            condition = newCondition
+        }
+
+
+---- Game Mechanic Functions ----
+
+
+-- Transports the Player from one level to the next using the helper methods below.
 teleport :: HalexGame -> HalexGame
 teleport game = 
     case game of
-        (HalexGame player exits staticEnvironment dynamicEnvironment keys level exitAll staticAll dynamicAll) -> 
+        (HalexGame player exits staticEnvironment dynamicEnvironment collisions keys level exitAll staticAll dynamicAll collisionAll messages condition) -> 
             let code = checkExitCollision exits
-            in if code == (-1) then game else (changeLevel level code game)
+            in if code == (-1) then game else if code == (7) then (updateCondition game 2) else (changeLevel level code game)
+
+-- Changes the level by updating the environment.
+changeLevel :: Int -> Int -> HalexGame -> HalexGame
+changeLevel oldLevel newLevel game =
+    case game of
+        (HalexGame player exits staticEnvironment dynamicEnvironment collisions keys level exitAll staticAll dynamicAll collisionAll messages condition) -> 
+            let (deltaX, deltaY) = getSpawnPoint oldLevel (getItem newLevel exitAll)
+            in HalexGame (updatePlayer player South False ((-(playerX player)) - deltaX) ((-(playerY player)) - deltaY)) (updateExits (getItem newLevel exitAll) deltaX deltaY []) (updateStaticEnvironment (getItem newLevel staticAll) deltaX deltaY []) (updateDynamicEnvironment (getItem newLevel dynamicAll) deltaX deltaY []) (getItem newLevel collisionAll) S.empty newLevel exitAll staticAll dynamicAll collisionAll messages condition
+
+-- Returns the x and y-coordinates for where the Player will spawn in the new level.
+getSpawnPoint :: Int -> [Exit] -> (Int, Int)
+getSpawnPoint oldLevel [] = (0, 0)
+getSpawnPoint oldLevel (z:zs) =
+    case z of
+        Exit sprite x y code ->
+            if code == oldLevel then ((-x), (-y)) else (getSpawnPoint oldLevel zs)
 
 -- Returns the code of any Exit the Player is intersecting.
 checkExitCollision :: [Exit] -> Int
@@ -339,21 +430,33 @@ checkExitCollision (z:zs) =
         Exit sprite x y code ->
             if (x < 64 && x > (-64) && y < 64 && y > (-64)) then code else (checkExitCollision zs)
 
--- Changes the level by updating the environment.
-changeLevel :: Int -> Int -> HalexGame -> HalexGame
-changeLevel oldLevel newLevel game =
-    case game of
-        (HalexGame player exits staticEnvironment dynamicEnvironment keys level exitAll staticAll dynamicAll) -> 
-            let (deltaX, deltaY) = getSpawnPoint oldLevel (getItem newLevel exitAll)
-            in HalexGame player (updateExits (getItem newLevel exitAll) deltaX deltaY []) (updateStaticEnvironment (getItem newLevel staticAll) deltaX deltaY []) (updateDynamicEnvironment (getItem newLevel dynamicAll) deltaX deltaY []) S.empty newLevel exitAll staticAll dynamicAll
-
--- Returns the x and y-coordinates for where the Player will spawn in the new level.
-getSpawnPoint :: Int -> [Exit] -> (Int, Int)
-getSpawnPoint oldLevel [] = (0, 0)
-getSpawnPoint oldLevel (z:zs) =
+-- Returns false if the player will collide with something when moving in the given direction.
+checkCollision :: [Collision] -> Player -> Direction -> Bool
+checkCollision [] player direction = True
+checkCollision (z:zs) player direction =
     case z of
-        Exit sprite x y code ->
-            if code == oldLevel then ((-x), (-y)) else (getSpawnPoint oldLevel zs)
+        Collision x y ->
+            case direction of 
+                North       ->
+                    if x <= ((playerX player) + 32) && x >= ((playerX player) - 32) && y > (playerY player) && y < ((playerY player) + 48)
+                    then False
+                    else checkCollision zs player direction
+                South       ->
+                    if x <= ((playerX player) + 32) && x >= ((playerX player) - 32) && y < (playerY player) && y > ((playerY player) - 48)
+                    then False
+                    else checkCollision zs player direction
+                East        ->
+                    if y <= ((playerY player) + 32) && y >= ((playerY player) - 32) && x > (playerX player) && x < ((playerX player) + 48)
+                    then False
+                    else checkCollision zs player direction
+                West        ->
+                    if y <= ((playerY player) + 32) && y >= ((playerY player) - 32) && x < (playerX player) && x > ((playerX player) - 48)
+                    then False
+                    else checkCollision zs player direction
+
+
+---- Gloss Functions ----
+
 
 -- Sets the display settings of the game.
 window :: Display
@@ -371,83 +474,7 @@ fps = 90
 render :: HalexGame -> Picture
 render game = 
     case game of
-        (HalexGame player exits staticEnvironment dynamicEnvironment keys level exitAll staticAll dynamicAll) -> pictures ((drawStaticEnvironment staticEnvironment []) ++ (drawDynamicEnvironment dynamicEnvironment []) ++ (drawExits exits []) ++ (drawPlayer player))
-
--- Updates the game by one frame  based on user input and game logic.
-update :: Float -> HalexGame -> HalexGame
-update seconds game
-    | S.member (SpecialKey KeySpace) (input game) = teleport game
-    | S.member (Char 'w') (input game) && S.member (Char 'd') (input game) = 
-        game 
-        {
-            exits           = updateExits (exits game) (-1) (-1) [],
-            staticEnv       = updateStaticEnvironment (staticEnv game) (-1) (-1) [],
-            dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) (-1) (-1) [],
-            player          = updatePlayer (player game) Northeast True
-        }
-    | S.member (Char 'w') (input game) && S.member (Char 'a') (input game) = 
-        game 
-        {
-            exits           = updateExits (exits game) 1 (-1) [],
-            staticEnv       = updateStaticEnvironment (staticEnv game) 1 (-1) [],
-            dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) 1 (-1) [],
-            player          = updatePlayer (player game) Northwest True
-        }
-    | S.member (Char 's') (input game) && S.member (Char 'd') (input game) = 
-        game {
-            exits           = updateExits (exits game) (-1) 1 [],
-            staticEnv       = updateStaticEnvironment (staticEnv game) (-1) 1 [],
-            dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) (-1) 1 [],
-            player          = updatePlayer (player game) Southeast True
-        }
-    | S.member (Char 's') (input game) && S.member (Char 'a') (input game) = 
-        game 
-        {
-            exits           = updateExits (exits game) 1 1 [],
-            staticEnv       = updateStaticEnvironment (staticEnv game) 1 1 [],
-            dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) 1 1 [],
-            player          = updatePlayer (player game) Southwest True
-        }
-    | S.member (Char 'w') (input game) = 
-        game 
-        {
-            exits           = updateExits (exits game) 0 (-1) [],
-            staticEnv       = updateStaticEnvironment (staticEnv game) 0 (-1) [],
-            dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) 0 (-1) [],
-            player          = updatePlayer (player game) North True
-        }
-    | S.member (Char 'a') (input game) = 
-        game 
-        {
-            exits           = updateExits (exits game) 1 0 [],
-            staticEnv       = updateStaticEnvironment (staticEnv game) 1 0 [],
-            dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) 1 0 [],
-            player          = updatePlayer (player game) West True
-        }
-    | S.member (Char 's') (input game) = 
-        game
-        {
-            exits           = updateExits (exits game) 0 1 [],
-            staticEnv       = updateStaticEnvironment (staticEnv game) 0 1 [],
-            dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) 0 1 [],
-            player          = updatePlayer (player game) South True
-        }
-    | S.member (Char 'd') (input game) =
-        game 
-        {
-            exits           = updateExits (exits game) (-1) 0 [],
-            staticEnv       = updateStaticEnvironment (staticEnv game) (-1) 0 [],
-            dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) (-1) 0 [],
-            player          = updatePlayer (player game) East True
-        }
-    | otherwise = 
-        game 
-        {
-            exits           = updateExits (exits game) 0 0 [],
-            staticEnv       = updateStaticEnvironment (staticEnv game) 0 0 [],
-            dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) 0 0 [],
-            player          = updatePlayer (player game) North False
-        }
+        (HalexGame player exits staticEnvironment dynamicEnvironment collisions keys level exitAll staticAll dynamicAll collisionAll messages condition) -> pictures ((drawStaticEnvironment staticEnvironment []) ++ (drawDynamicEnvironment dynamicEnvironment []) ++ (drawExits exits []) ++ (drawPlayer player) ++ (drawMessages messages condition))
 
 -- Adds user input to the input set in the game object.
 manager :: Event -> HalexGame -> HalexGame
@@ -455,7 +482,243 @@ manager (EventKey key Down _ _) game  = game {input = S.insert key (input game)}
 manager (EventKey key Up _ _) game    = game {input = S.delete key (input game)}
 manager _ game                        = game
 
--- Main Function.
+-- Updates the game by one frame  based on user input and game logic.
+update :: Float -> HalexGame -> HalexGame
+update seconds game
+    -- Space - Teleports the player at an exit.
+    | S.member (SpecialKey KeySpace) (input game) && (condition game) == 1 = teleport game
+    -- W and D - Moves the player character northeast.
+    | S.member (Char 'w') (input game) && S.member (Char 'd') (input game)  && (condition game) == 1 = 
+        case ((checkCollision (collisions game) (player game) North), (checkCollision (collisions game) (player game) East)) of
+            (True, True)    ->
+                game 
+                {
+                    exits           = updateExits (exits game) (-1) (-1) [],
+                    staticEnv       = updateStaticEnvironment (staticEnv game) (-1) (-1) [],
+                    dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) (-1) (-1) [],
+                    player          = updatePlayer (player game) Northeast True (1) (1)
+                }
+            (False, True)   ->
+                game 
+                {
+                    exits           = updateExits (exits game) (-1) 0 [],
+                    staticEnv       = updateStaticEnvironment (staticEnv game) (-1) 0 [],
+                    dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) (-1) 0 [],
+                    player          = updatePlayer (player game) Northeast True (1) 0
+                }
+            (True, False)   ->
+                game 
+                {
+                    exits           = updateExits (exits game) 0 (-1) [],
+                    staticEnv       = updateStaticEnvironment (staticEnv game) 0 (-1) [],
+                    dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) 0 (-1) [],
+                    player          = updatePlayer (player game) Northeast True 0 (1)
+                }
+            (False, False)  ->
+                game 
+                {
+                    exits           = updateExits (exits game) 0 0 [],
+                    staticEnv       = updateStaticEnvironment (staticEnv game) 0 0 [],
+                    dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) 0 0 [],
+                    player          = updatePlayer (player game) Northeast True 0 0
+                }
+    -- W and A - Moves the player character northwest.
+    | S.member (Char 'w') (input game) && S.member (Char 'a') (input game) && (condition game) == 1 = 
+        case ((checkCollision (collisions game) (player game) North), (checkCollision (collisions game) (player game) West)) of
+            (True, True)    ->
+                game 
+                {
+                    exits           = updateExits (exits game) 1 (-1) [],
+                    staticEnv       = updateStaticEnvironment (staticEnv game) 1 (-1) [],
+                    dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) 1 (-1) [],
+                    player          = updatePlayer (player game) Northwest True (-1) (1)
+                }
+            (False, True)   ->
+                game 
+                {
+                    exits           = updateExits (exits game) 1 0 [],
+                    staticEnv       = updateStaticEnvironment (staticEnv game) 1 0 [],
+                    dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) 1 0 [],
+                    player          = updatePlayer (player game) Northwest True (-1) 0
+                }
+            (True, False)   ->
+                game 
+                {
+                    exits           = updateExits (exits game) 0 (-1) [],
+                    staticEnv       = updateStaticEnvironment (staticEnv game) 0 (-1) [],
+                    dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) 0 (-1) [],
+                    player          = updatePlayer (player game) Northwest True 0 (1)
+                }
+            (False, False)  ->
+                game 
+                {
+                    exits           = updateExits (exits game) 0 0 [],
+                    staticEnv       = updateStaticEnvironment (staticEnv game) 0 0 [],
+                    dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) 0 0 [],
+                    player          = updatePlayer (player game) Northwest True 0 0
+                }
+    -- S and D - Moves the player character southeast.
+    | S.member (Char 's') (input game) && S.member (Char 'd') (input game) && (condition game) == 1 = 
+        case ((checkCollision (collisions game) (player game) South), (checkCollision (collisions game) (player game) East)) of
+            (True, True)    ->
+                game 
+                {
+                    exits           = updateExits (exits game) (-1) 1 [],
+                    staticEnv       = updateStaticEnvironment (staticEnv game) (-1) 1 [],
+                    dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) (-1) 1 [],
+                    player          = updatePlayer (player game) Southeast True (1) (-1)
+                }
+            (False, True)   ->
+                game 
+                {
+                    exits           = updateExits (exits game) (-1) 0 [],
+                    staticEnv       = updateStaticEnvironment (staticEnv game) (-1) 0 [],
+                    dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) (-1) 0 [],
+                    player          = updatePlayer (player game) Southeast True (1) 0
+                }
+            (True, False)   ->
+                game 
+                {
+                    exits           = updateExits (exits game) 0 (1) [],
+                    staticEnv       = updateStaticEnvironment (staticEnv game) 0 (1) [],
+                    dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) 0 (1) [],
+                    player          = updatePlayer (player game) Southeast True 0 (-1)
+                }
+            (False, False)  ->
+                game 
+                {
+                    exits           = updateExits (exits game) 0 0 [],
+                    staticEnv       = updateStaticEnvironment (staticEnv game) 0 0 [],
+                    dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) 0 0 [],
+                    player          = updatePlayer (player game) Southeast True 0 0
+                }
+    -- S and A - Moves the player character southeast.
+    | S.member (Char 's') (input game) && S.member (Char 'a') (input game) && (condition game) == 1 = 
+        case ((checkCollision (collisions game) (player game) South), (checkCollision (collisions game) (player game) West)) of
+            (True, True)    ->
+                game 
+                {
+                    exits           = updateExits (exits game) 1 1 [],
+                    staticEnv       = updateStaticEnvironment (staticEnv game) 1 1 [],
+                    dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) 1 1 [],
+                    player          = updatePlayer (player game) Southwest True (-1) (-1)
+                }
+            (False, True)   ->
+                game 
+                {
+                    exits           = updateExits (exits game) 1 0 [],
+                    staticEnv       = updateStaticEnvironment (staticEnv game) 1 0 [],
+                    dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) 1 0 [],
+                    player          = updatePlayer (player game) Southwest True (-1) 0
+                }
+            (True, False)   ->
+                game 
+                {
+                    exits           = updateExits (exits game) 0 (1) [],
+                    staticEnv       = updateStaticEnvironment (staticEnv game) 0 (1) [],
+                    dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) 0 (1) [],
+                    player          = updatePlayer (player game) Southwest True 0 (-1)
+                }
+            (False, False)  ->
+                game 
+                {
+                    exits           = updateExits (exits game) 0 0 [],
+                    staticEnv       = updateStaticEnvironment (staticEnv game) 0 0 [],
+                    dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) 0 0 [],
+                    player          = updatePlayer (player game) Southwest True 0 0
+                }
+    -- W - Moves the player character north.
+    | S.member (Char 'w') (input game) && (condition game) == 1 = 
+        if (checkCollision (collisions game) (player game) North) then
+        game 
+        {
+            exits           = updateExits (exits game) 0 (-1) [],
+            staticEnv       = updateStaticEnvironment (staticEnv game) 0 (-1) [],
+            dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) 0 (-1) [],
+            player          = updatePlayer (player game) North True 0 1
+        }
+        else
+        game 
+        {
+            exits           = updateExits (exits game) 0 0 [],
+            staticEnv       = updateStaticEnvironment (staticEnv game) 0 0 [],
+            dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) 0 0 [],
+            player          = updatePlayer (player game) North True 0 0
+        }
+    -- A - Moves the player character west.
+    | S.member (Char 'a') (input game) && (condition game) == 1 = 
+        if (checkCollision (collisions game) (player game) West) then
+        game 
+        {
+            exits           = updateExits (exits game) 1 0 [],
+            staticEnv       = updateStaticEnvironment (staticEnv game) 1 0 [],
+            dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) 1 0 [],
+            player          = updatePlayer (player game) West True (-1) 0
+        }
+        else
+        game 
+        {
+            exits           = updateExits (exits game) 0 0 [],
+            staticEnv       = updateStaticEnvironment (staticEnv game) 0 0 [],
+            dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) 0 0 [],
+            player          = updatePlayer (player game) West True 0 0
+        }
+    -- S - Moves the player character south.
+    | S.member (Char 's') (input game) && (condition game) == 1 = 
+        if (checkCollision (collisions game) (player game) South) then
+        game
+        {
+            exits           = updateExits (exits game) 0 1 [],
+            staticEnv       = updateStaticEnvironment (staticEnv game) 0 1 [],
+            dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) 0 1 [],
+            player          = updatePlayer (player game) South True 0 (-1)
+        }
+        else
+        game 
+        {
+            exits           = updateExits (exits game) 0 0 [],
+            staticEnv       = updateStaticEnvironment (staticEnv game) 0 0 [],
+            dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) 0 0 [],
+            player          = updatePlayer (player game) South True 0 0
+        }
+    -- D - Moves the player character east.
+    | S.member (Char 'd') (input game) && (condition game) == 1 =
+        if (checkCollision (collisions game) (player game) East) then
+        game 
+        {
+            exits           = updateExits (exits game) (-1) 0 [],
+            staticEnv       = updateStaticEnvironment (staticEnv game) (-1) 0 [],
+            dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) (-1) 0 [],
+            player          = updatePlayer (player game) East True 1 0
+        }
+        else
+        game 
+        {
+            exits           = updateExits (exits game) 0 0 [],
+            staticEnv       = updateStaticEnvironment (staticEnv game) 0 0 [],
+            dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) 0 0 [],
+            player          = updatePlayer (player game) East True 0 0
+        }
+    -- Enter - Launches gameplay from the main menu.
+    | S.member (SpecialKey KeyEnter) (input game) && (condition game) == 0 =
+        game 
+        {
+            condition       = 1
+        }
+    -- No Input - The player character does not respond.
+    | otherwise =
+        game 
+        {
+            exits           = updateExits (exits game) 0 0 [],
+            staticEnv       = updateStaticEnvironment (staticEnv game) 0 0 [],
+            dynamicEnv      = updateDynamicEnvironment (dynamicEnv game) 0 0 [],
+            player          = updatePlayer (player game) North False 0 0
+        }
+
+
+---- Main Function ----
+
+
 main :: IO ()
 main = do
 
@@ -553,9 +816,13 @@ main = do
                                     loadSprites playerWalkSWFiles
                                 ]
 
+    ---- Messages ----
+
+    messageFiles                <- getFilesInDir "Assets/Messages/"
+    let messageSprites           = loadSprites messageFiles
 
     -------- PLAY GAME --------
 
-    game <- loadGame terrainSprites staticStructureSprites dynamicStructureAnims staticDecorationSprites dynamicDecorationAnims setpieceSprites exitSprites playerIdleSprites playerWalkAnims
+    game <- loadGame terrainSprites staticStructureSprites dynamicStructureAnims staticDecorationSprites dynamicDecorationAnims setpieceSprites exitSprites playerIdleSprites playerWalkAnims messageSprites
 
     play window background fps game render manager update
