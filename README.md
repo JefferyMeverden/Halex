@@ -1,6 +1,6 @@
 # Halex
 A 2D top-down exploration game written in Haskell.  
-*Take control of Halex to explore an underground cathedral, discover three haunting ruins, and escape to the surface.*  
+*Take control of Halex to explore an underground labyrinthh, discover three haunting ruins, and escape to the surface.*  
 
 ## Controls:
 
