@@ -3,7 +3,7 @@
  * Author: Jeffery Jerome Meverden III
  * Date Created: 4/10/2022
  * Description: This program is an implementation of Halex,
- * a 2D top-down exploration video game.
+ * a 2D top-down exploration video game written in Haskell.
  * 
 -}
 
